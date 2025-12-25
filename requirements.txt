@@ -1,17 +1,16 @@
 # INDRA Backend - Python Dependencies
 # Production-ready requirements for Render deployment
+# Requires Python 3.11 (set in render.yaml)
 
 # ==================== CORE FRAMEWORK ====================
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-python-dotenv==1.0.0
+fastapi>=0.109.0,<1.0.0
+uvicorn[standard]>=0.27.0,<1.0.0
+pydantic>=2.5.0,<3.0.0
+python-dotenv>=1.0.0
 
 # ==================== HTTP & WEB SCRAPING ====================
-aiohttp==3.9.1
-beautifulsoup4==4.12.2
-lxml>=4.9.0
-html5lib>=1.1
+aiohttp>=3.9.0
+beautifulsoup4>=4.12.0
 requests>=2.31.0
 
 # ==================== AI & ML ====================
@@ -25,15 +24,12 @@ langchain-core>=0.1.0
 # Vector database
 qdrant-client>=1.7.0
 
-# Embeddings - use tokenizers with pre-built wheels
-tokenizers>=0.15.0
-transformers>=4.36.0
-huggingface-hub>=0.20.0
-torch>=2.0.0
+# Embeddings
+sentence-transformers>=2.2.0
 
 # ==================== DATA PROCESSING ====================
 pandas>=2.0.0
-numpy>=1.24.0
+numpy>=1.24.0,<2.0.0
 
 # ==================== FIREBASE ====================
 firebase-admin>=6.2.0
