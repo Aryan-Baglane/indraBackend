@@ -1,7 +1,7 @@
 """
 Crop Suggestion System with AI-Powered Recommendations
-Production-ready RAG + GIS + LLM architecture for intelligent crop selection
-Uses OpenRouter with Llama model for water-efficient farming recommendations
+Production-ready RAG + LLM architecture for intelligent crop selection
+Uses centralized config and AI-backed dynamic responses
 """
 
 import os
@@ -12,18 +12,13 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 import json
 
-# API KEYS AND CONFIGURATION
-QDRANT_URL = "https://50052f68-a3f2-4fce-91b2-9e140737db61.us-east4-0.gcp.cloud.qdrant.io"
-QDRANT_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.5XzTwGgID_B55AVH-lIM9QYK2PEceMbMkcUMHWCgTDU"
-OPENROUTER_API_KEY = "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"
-
-# MODEL CONFIGURATION
-COLLECTION_NAME = "standrd_rag"
-LLM_MODEL = "nvidia/nemotron-nano-12b-v2-vl:free"
-TEMPERATURE = 0.3
-MAX_TOKENS = 2500  # Increased for complete JSON
-MAX_RETRIES = 3
-RETRY_DELAY = 1.0
+# Import centralized config
+from config import (
+    QDRANT_URL, QDRANT_API_KEY, OPENROUTER_API_KEY,
+    RAG_COLLECTION_NAME, LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS,
+    EMBEDDING_MODEL_PATH, OPENROUTER_BASE_URL,
+    MAX_RETRIES, RETRY_DELAY, RAG_RETRIEVER_K
+)
 
 # DEPENDENCIES
 try:
@@ -35,6 +30,7 @@ try:
     from langchain_core.output_parsers import StrOutputParser
     from langchain_core.runnables import RunnablePassthrough
     from gis_utils import gis_manager
+    from ai_service import ai_service  # Unified AI service for fact-checking
 except ImportError as e:
     print("Error: Missing required libraries")
     print("Install: pip install langchain-huggingface langchain-qdrant qdrant-client langchain-openai pandas")
@@ -193,37 +189,23 @@ def initialize_crop_system():
         return "\n\n".join(doc.page_content for doc in docs)
     
     def format_input(inputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Format inputs with GIS data - pincode is primary identifier"""
-        # Get GIS data using pincode primarily
-        gis_data_str = "GIS data not available"
+        """Format inputs with AI-verified data - NOT raw GIS data directly"""
+        # Use pre-verified data passed from input (fact-checked by ai_service)
+        verified_rainfall = inputs.get('rainfall_mm', 'N/A')
+        gw_status = inputs.get('gw_status', 'Unknown')
         location = inputs.get('location', '')
         pincode = inputs.get('pincode')
         
-        if pincode or location:
-            location_parts = location.split(",")
-            district = location_parts[0].strip() if location_parts else None
-            state = location_parts[1].strip() if len(location_parts) > 1 else None
-            
-            gis_data = gis_manager.get_location_data(
-                pincode=pincode,
-                district=district,
-                state=state
-            )
-            
-            if gis_data:
-                rainfall_info = gis_data.get('rainfall', {})
-                match_note = gis_data.get('note', '')
-                gis_data_str = f"""District: {gis_data.get('district', 'Unknown')}
-State: {gis_data.get('state', 'Unknown')}
-Annual Rainfall: {rainfall_info.get('total_annual', 0):.0f} mm
-Monsoon Rainfall: {rainfall_info.get('monsoon', 0):.0f} mm
-Summer Rainfall: {rainfall_info.get('summer', 0):.0f} mm
-Groundwater Stress: {gis_manager.get_water_stress_level(gis_data)}"""
-                if match_note:
-                    gis_data_str += f"\nNote: {match_note}"
+        # Build verified GIS data string for prompt
+        gis_data_str = f"""AI-VERIFIED LOCATION DATA:
+Annual Rainfall: {verified_rainfall} mm (AI-verified)
+Groundwater Status: {gw_status} (AI-verified)
+Location: {location}
+Pincode: {pincode or 'Not provided'}
+Note: This data has been fact-checked against our knowledge base."""
         
         # Retrieve context from RAG (limit to 2 docs, first 300 chars each)
-        query = f"crop {inputs.get('season', '')} {inputs.get('soil_type', '')}"
+        query = f"crop {inputs.get('season', '')} {inputs.get('soil_type', '')} rainfall {verified_rainfall}mm India"
         docs = retriever.invoke(query)
         context = " ".join(doc.page_content[:300] for doc in docs[:2])  # Limit tokens
         
@@ -235,7 +217,7 @@ Groundwater Stress: {gis_manager.get_water_stress_level(gis_data)}"""
             "season": inputs.get("season", ""),
             "water_availability": inputs.get("water_availability", ""),
             "farm_size_acres": inputs.get("farm_size_acres", ""),
-            "rainfall_mm": inputs.get("rainfall_mm", "N/A")
+            "rainfall_mm": verified_rainfall
         }
     
     rag_chain = (
@@ -371,14 +353,53 @@ def try_parse_json(json_str: str) -> Optional[Dict[str, Any]]:
 
 
 async def get_crop_suggestions(crop_input: CropInput) -> CropSuggestionResponse:
-    """Get AI-powered crop suggestions with RAG + GIS + LLM"""
+    """Get AI-powered crop suggestions with RAG + GIS + LLM + AI Fact-Checking"""
     global rag_chain
     
     # Initialize if needed
     if rag_chain is None:
         initialize_crop_system()
     
-    # Prepare input
+    # Initialize AI service for fact-checking
+    ai_service.initialize()
+    
+    # Get location data from GIS
+    location_parts = crop_input.location.split(",")
+    district = location_parts[0].strip() if location_parts else None
+    state = location_parts[1].strip() if len(location_parts) > 1 else None
+    
+    gis_data = gis_manager.get_location_data(
+        pincode=crop_input.pincode,
+        district=district,
+        state=state
+    )
+    
+    # FACT-CHECK GIS DATA using AI Service
+    verified_rainfall = crop_input.rainfall_mm or 0
+    verified_gw_status = "Unknown"
+    ai_corrections = []
+    
+    if gis_data and district and state:
+        print(f"[CropSuggestion] Fact-checking GIS data for {district}, {state}...")
+        fact_check_result = await ai_service.fact_check_location_data(
+            state=state,
+            district=district, 
+            gis_data=gis_data
+        )
+        
+        if fact_check_result.confidence >= 0.5:
+            verified_rainfall = fact_check_result.verified_data.get('rainfall', {}).get('total_annual', verified_rainfall)
+            verified_gw_pct = fact_check_result.verified_data.get('groundwater', {}).get('extraction_percentage', 0)
+            verified_gw_status = "Low" if verified_gw_pct < 70 else "Critical" if verified_gw_pct > 100 else "High"
+            ai_corrections = fact_check_result.corrections
+            print(f"[CropSuggestion] Verified rainfall: {verified_rainfall}mm (confidence: {fact_check_result.confidence})")
+        else:
+            print(f"[CropSuggestion] Low confidence fact-check, using GIS data with caution")
+            verified_rainfall = gis_data.get('rainfall', {}).get('total_annual', 0) if gis_data else 0
+    elif gis_data:
+        verified_rainfall = gis_data.get('rainfall', {}).get('total_annual', 0)
+    
+    # Prepare input with VERIFIED data (not raw GIS data)
     input_dict = {
         "location": crop_input.location,
         "pincode": crop_input.pincode,
@@ -386,7 +407,8 @@ async def get_crop_suggestions(crop_input: CropInput) -> CropSuggestionResponse:
         "season": crop_input.season,
         "water_availability": crop_input.water_availability,
         "farm_size_acres": crop_input.farm_size_acres,
-        "rainfall_mm": crop_input.rainfall_mm if crop_input.rainfall_mm else "N/A"
+        "rainfall_mm": verified_rainfall,  # Use verified data
+        "gw_status": verified_gw_status
     }
     
     # Retry logic for LLM calls

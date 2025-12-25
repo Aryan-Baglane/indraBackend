@@ -5,13 +5,15 @@ services:
   - type: web
     name: indra-backend
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    region: oregon
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: "3.11"
+        value: "3.11.4"
       - key: OPENROUTER_API_KEY
-        sync: false  # Set manually in Render dashboard
+        sync: false
       - key: QDRANT_URL
         sync: false
       - key: QDRANT_API_KEY
@@ -21,7 +23,7 @@ services:
       - key: RAG_COLLECTION_NAME
         value: "standrd_rag"
       - key: CORS_ORIGINS
-        value: "https://your-frontend.vercel.app,http://localhost:5173"
+        value: "*"
       - key: DEBUG_MODE
         value: "false"
     healthCheckPath: /health

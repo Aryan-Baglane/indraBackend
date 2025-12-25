@@ -11,6 +11,9 @@ import os
 # Import config
 from config import CORS_ORIGINS, SERVER_HOST, SERVER_PORT, DEBUG_MODE, validate_config
 
+# Import AI service for centralized AI operations
+from ai_service import ai_service
+
 # Import vendor module
 from vendor import search_vendors_handler, get_diy_guide_handler
 
@@ -69,6 +72,17 @@ async def startup_event():
     """Initialize AI systems on server startup"""
     print("\nStarting INDRA Backend Services...")
     print("-" * 50)
+    
+    # Initialize Central AI Service (RAG + LLM)
+    try:
+        print("Initializing Central AI Service...")
+        ai_service.initialize()
+        if ai_service._initialized:
+            print("Central AI Service ready")
+        else:
+            print("Central AI Service: Limited functionality")
+    except Exception as e:
+        print(f"Central AI Service warning: {e}")
     
     # Initialize Assessment Embedding Model
     try:

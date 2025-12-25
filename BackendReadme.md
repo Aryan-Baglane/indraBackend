@@ -3,7 +3,7 @@
 > **Initiative for Drainage and Rainwater Acquisition**  
 > Production-ready FastAPI backend with AI-powered water conservation features
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.11+
@@ -45,7 +45,7 @@ API Docs at: `http://localhost:8000/docs`
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 backend/
@@ -81,7 +81,7 @@ backend/
 
 ---
 
-## 🔌 API Endpoints Reference
+## API Endpoints Reference
 
 ### Base URL
 - **Local**: `http://localhost:8000`
@@ -206,7 +206,7 @@ GET /api/vendors/search?location=Mumbai&search_type=all
       "email": "info@rainwatersolutions.in",
       "website": "https://rainwatersolutions.in",
       "rating": 4.5,
-      "price_range": "₹5,000 - ₹50,000",
+      "price_range": "Rs.5,000 - Rs.50,000",
       "description": "Complete RWH systems for residential and commercial"
     }
   ],
@@ -226,7 +226,7 @@ Get DIY installation guide
   "title": "Complete DIY RWH Installation Guide",
   "difficulty": "Moderate",
   "estimated_time": "2-3 days",
-  "estimated_cost": "₹5,000 - ₹15,000",
+  "estimated_cost": "Rs.5,000 - Rs.15,000",
   "steps": [
     "Survey your roof area and calculate potential",
     "Install gutters along roof edges",
@@ -261,7 +261,7 @@ Urban/Standard mode chatbot - focuses on RWH systems, costs, installation
 **Response:**
 ```json
 {
-  "response": "A basic RWH system for a 100 sqm roof costs ₹15,000-25,000. This includes gutters, pipes, filter, and a 1000L tank. Installation adds ₹3,000-5,000. ROI is typically 2-3 years through water bill savings."
+  "response": "A basic RWH system for a 100 sqm roof costs Rs.15,000-25,000. This includes gutters, pipes, filter, and a 1000L tank. Installation adds Rs.3,000-5,000. ROI is typically 2-3 years through water bill savings."
 }
 ```
 
@@ -463,7 +463,7 @@ Get curated blog posts
 
 ---
 
-## 🔧 Configuration Reference
+## Configuration Reference
 
 ### Environment Variables
 
@@ -481,11 +481,11 @@ Get curated blog posts
 
 ---
 
-## 🚀 Deployment (Render)
+## Deployment (Render)
 
 ### Option 1: Blueprint Deploy
 1. Push code to GitHub
-2. Go to Render Dashboard → New → Blueprint
+2. Go to Render Dashboard -> New -> Blueprint
 3. Connect your repo
 4. Render reads `render.yaml` automatically
 5. Set environment variables in Render dashboard
@@ -508,95 +508,95 @@ Set these in the Render dashboard (Environment tab):
 
 ---
 
-## 📊 Data Flow Diagrams
+## Data Flow Diagrams
 
 ### Assessment Flow
 ```
 Frontend                    Backend                     External
-   │                           │                           │
-   │  POST /assessment/analyze │                           │
-   │ ─────────────────────────>│                           │
-   │  {pincode, roof_type...}  │                           │
-   │                           │                           │
-   │                           │  Lookup GIS Data          │
-   │                           │ ─────────────────────────>│
-   │                           │  rainfall, groundwater    │ GIS CSV
-   │                           │ <─────────────────────────│
-   │                           │                           │
-   │                           │  Calculate RWH Potential  │
-   │                           │  (runoff coefficient,     │
-   │                           │   household multiplier)   │
-   │                           │                           │
-   │                           │  Predict Cost             │
-   │                           │  (budget tier, material,  │
-   │                           │   rainfall zone)          │
-   │                           │                           │
-   │  Response                 │                           │
-   │ <─────────────────────────│                           │
-   │  {gis_data, potential,    │                           │
-   │   cost, recommendations}  │                           │
+   |                           |                           |
+   |  POST /assessment/analyze |                           |
+   | ------------------------->|                           |
+   |  {pincode, roof_type...}  |                           |
+   |                           |                           |
+   |                           |  Lookup GIS Data          |
+   |                           | ------------------------->|
+   |                           |  rainfall, groundwater    | GIS CSV
+   |                           | <-------------------------|
+   |                           |                           |
+   |                           |  Calculate RWH Potential  |
+   |                           |  (runoff coefficient,     |
+   |                           |   household multiplier)   |
+   |                           |                           |
+   |                           |  Predict Cost             |
+   |                           |  (budget tier, material,  |
+   |                           |   rainfall zone)          |
+   |                           |                           |
+   |  Response                 |                           |
+   | <-------------------------|                           |
+   |  {gis_data, potential,    |                           |
+   |   cost, recommendations}  |                           |
 ```
 
 ### Chatbot Flow (RAG + LLM)
 ```
 Frontend                    Backend                     External
-   │                           │                           │
-   │  POST /chatbot/standard   │                           │
-   │ ─────────────────────────>│                           │
-   │  {message: "..."}         │                           │
-   │                           │                           │
-   │                           │  1. Embed query           │
-   │                           │  (local MiniLM model)     │
-   │                           │                           │
-   │                           │  2. Vector search         │
-   │                           │ ─────────────────────────>│ Qdrant
-   │                           │  relevant docs (k=2)      │
-   │                           │ <─────────────────────────│
-   │                           │                           │
-   │                           │  3. Build prompt          │
-   │                           │  (context + question)     │
-   │                           │                           │
-   │                           │  4. LLM inference         │
-   │                           │ ─────────────────────────>│ OpenRouter
-   │                           │  response                 │
-   │                           │ <─────────────────────────│
-   │                           │                           │
-   │  Response                 │                           │
-   │ <─────────────────────────│                           │
-   │  {response: "..."}        │                           │
+   |                           |                           |
+   |  POST /chatbot/standard   |                           |
+   | ------------------------->|                           |
+   |  {message: "..."}         |                           |
+   |                           |                           |
+   |                           |  1. Embed query           |
+   |                           |  (local MiniLM model)     |
+   |                           |                           |
+   |                           |  2. Vector search         |
+   |                           | ------------------------->| Qdrant
+   |                           |  relevant docs (k=2)      |
+   |                           | <-------------------------|
+   |                           |                           |
+   |                           |  3. Build prompt          |
+   |                           |  (context + question)     |
+   |                           |                           |
+   |                           |  4. LLM inference         |
+   |                           | ------------------------->| OpenRouter
+   |                           |  response                 |
+   |                           | <-------------------------|
+   |                           |                           |
+   |  Response                 |                           |
+   | <-------------------------|                           |
+   |  {response: "..."}        |                           |
 ```
 
 ### Crop Suggestion Flow
 ```
 Frontend                    Backend                     External
-   │                           │                           │
-   │  POST /crop-suggestions   │                           │
-   │ ─────────────────────────>│                           │
-   │  {location, soil, season} │                           │
-   │                           │                           │
-   │                           │  1. GIS Lookup            │
-   │                           │  (rainfall, groundwater)  │
-   │                           │                           │
-   │                           │  2. RAG retrieval         │
-   │                           │ ─────────────────────────>│ Qdrant
-   │                           │  crop knowledge           │
-   │                           │ <─────────────────────────│
-   │                           │                           │
-   │                           │  3. LLM generation        │
-   │                           │ ─────────────────────────>│ OpenRouter
-   │                           │  5 ranked crops (JSON)    │
-   │                           │ <─────────────────────────│
-   │                           │                           │
-   │                           │  4. Parse & validate      │
-   │                           │                           │
-   │  Response                 │                           │
-   │ <─────────────────────────│                           │
-   │  {recommendations: [...]} │                           │
+   |                           |                           |
+   |  POST /crop-suggestions   |                           |
+   | ------------------------->|                           |
+   |  {location, soil, season} |                           |
+   |                           |                           |
+   |                           |  1. GIS Lookup            |
+   |                           |  (rainfall, groundwater)  |
+   |                           |                           |
+   |                           |  2. RAG retrieval         |
+   |                           | ------------------------->| Qdrant
+   |                           |  crop knowledge           |
+   |                           | <-------------------------|
+   |                           |                           |
+   |                           |  3. LLM generation        |
+   |                           | ------------------------->| OpenRouter
+   |                           |  5 ranked crops (JSON)    |
+   |                           | <-------------------------|
+   |                           |                           |
+   |                           |  4. Parse & validate      |
+   |                           |                           |
+   |  Response                 |                           |
+   | <-------------------------|                           |
+   |  {recommendations: [...]} |                           |
 ```
 
 ---
 
-## 🔒 Security Notes
+## Security Notes
 
 1. **Never commit `.env` file** - Use `.env.example` as template
 2. **Firebase Admin SDK** - Keep `firebase-service-account.json` secure
@@ -605,7 +605,7 @@ Frontend                    Backend                     External
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### "GIS data not found"
 - Check `GIS_DATA_PATH` points to correct CSV file
@@ -625,7 +625,7 @@ Frontend                    Backend                     External
 
 ---
 
-## 📞 Support
+## Support
 
 For issues or questions:
 - Create GitHub issue
@@ -633,4 +633,4 @@ For issues or questions:
 
 ---
 
-*Built with ❤️ for water conservation in India*
+*By Soumya Sourav Das- INDRA*
