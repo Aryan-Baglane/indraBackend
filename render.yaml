@@ -1,0 +1,28 @@
+# Render Blueprint for INDRA Backend
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: indra-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: OPENROUTER_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: "nvidia/nemotron-nano-12b-v2-vl:free"
+      - key: RAG_COLLECTION_NAME
+        value: "standrd_rag"
+      - key: CORS_ORIGINS
+        value: "https://your-frontend.vercel.app,http://localhost:5173"
+      - key: DEBUG_MODE
+        value: "false"
+    healthCheckPath: /health
+    autoDeploy: true

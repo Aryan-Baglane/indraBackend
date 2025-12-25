@@ -1,0 +1,74 @@
+# INDRA Backend - Gitignore
+# Prevents sensitive files from being committed
+
+# Environment variables (NEVER commit!)
+.env
+.env.local
+.env.production
+
+# Firebase service account (contains private keys!)
+firebase-service-account.json
+*-service-account.json
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Model files (too large for git - download separately)
+# Uncomment if you want to exclude models
+# models/all-MiniLM-L6-v2/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
