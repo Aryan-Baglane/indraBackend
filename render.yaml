@@ -21,7 +21,7 @@ services:
       - key: RAG_COLLECTION_NAME
         value: "standrd_rag"
       - key: CORS_ORIGINS
-        value: "https://your-frontend.vercel.app,http://localhost:5173"
+        value: "*"
       - key: DEBUG_MODE
         value: "false"
     healthCheckPath: /health
