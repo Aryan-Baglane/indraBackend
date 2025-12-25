@@ -25,8 +25,11 @@ langchain-core>=0.1.0
 # Vector database
 qdrant-client>=1.7.0
 
-# Embeddings (local model)
-sentence-transformers>=2.2.0
+# Embeddings - use tokenizers with pre-built wheels
+tokenizers>=0.15.0
+transformers>=4.36.0
+huggingface-hub>=0.20.0
+torch>=2.0.0
 
 # ==================== DATA PROCESSING ====================
 pandas>=2.0.0
