@@ -5,7 +5,7 @@ Handles server-side authentication verification and database operations
 
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Query
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime
@@ -153,8 +153,19 @@ async def get_user_profile(uid: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/profile/{uid}")
-async def update_user_profile(uid: str, profile: UserProfileUpdate):
+@router.get("/profile/{uid}/update")
+async def update_user_profile(
+    uid: str,
+    name: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    district: Optional[str] = Query(None),
+    n_members: Optional[int] = Query(None),
+    catchment_area: Optional[float] = Query(None),
+    farmland_area: Optional[float] = Query(None),
+    roof_type: Optional[str] = Query(None),
+    roof_material: Optional[str] = Query(None),
+    budget: Optional[float] = Query(None)
+):
     """Update user profile"""
     if not db:
         raise HTTPException(status_code=500, detail="Database not initialized")
@@ -162,8 +173,27 @@ async def update_user_profile(uid: str, profile: UserProfileUpdate):
     try:
         doc_ref = db.collection('users').document(uid)
         
-        # Only update non-None fields
-        update_data = {k: v for k, v in profile.dict().items() if v is not None}
+        # Build update data from non-None query parameters
+        update_data = {}
+        if name is not None:
+            update_data['name'] = name
+        if state is not None:
+            update_data['state'] = state
+        if district is not None:
+            update_data['district'] = district
+        if n_members is not None:
+            update_data['n_members'] = n_members
+        if catchment_area is not None:
+            update_data['catchment_area'] = catchment_area
+        if farmland_area is not None:
+            update_data['farmland_area'] = farmland_area
+        if roof_type is not None:
+            update_data['roof_type'] = roof_type
+        if roof_material is not None:
+            update_data['roof_material'] = roof_material
+        if budget is not None:
+            update_data['budget'] = budget
+        
         update_data['updatedAt'] = firestore.SERVER_TIMESTAMP
         
         doc_ref.update(update_data)
@@ -174,16 +204,65 @@ async def update_user_profile(uid: str, profile: UserProfileUpdate):
 
 # ==================== ASSESSMENT ENDPOINTS ====================
 
-@router.post("/assessments")
-async def create_assessment(assessment: AssessmentCreate):
+@router.get("/assessments/create")
+async def create_assessment(
+    user_id: str = Query(...),
+    name: str = Query(...),
+    state: str = Query(...),
+    district: str = Query(...),
+    pincode: str = Query(...),
+    n_members: int = Query(...),
+    catchment_area: float = Query(...),
+    farmland_area: float = Query(...),
+    roof_type: str = Query(...),
+    roof_material: str = Query(...),
+    budget: float = Query(...),
+    rwh_type: str = Query(...),
+    avg_rainfall: float = Query(...),
+    cost: float = Query(...),
+    feasibility_score: float = Query(...),
+    annual_harvestable_water: float = Query(...),
+    recommended_storage_capacity: float = Query(...),
+    water_self_sufficiency_days: int = Query(...),
+    latitude: Optional[float] = Query(None),
+    longitude: Optional[float] = Query(None),
+    project_status: int = Query(1),
+    recommendations: str = Query("", description="Comma-separated recommendations")
+):
     """Create a new assessment"""
     if not db:
         raise HTTPException(status_code=500, detail="Database not initialized")
     
     try:
-        assessment_data = assessment.dict()
-        assessment_data['createdAt'] = firestore.SERVER_TIMESTAMP
-        assessment_data['updatedAt'] = firestore.SERVER_TIMESTAMP
+        # Parse recommendations from comma-separated string
+        recommendations_list = [r.strip() for r in recommendations.split(",") if r.strip()] if recommendations else []
+        
+        assessment_data = {
+            'user_id': user_id,
+            'name': name,
+            'state': state,
+            'district': district,
+            'pincode': pincode,
+            'n_members': n_members,
+            'catchment_area': catchment_area,
+            'farmland_area': farmland_area,
+            'roof_type': roof_type,
+            'roof_material': roof_material,
+            'budget': budget,
+            'latitude': latitude,
+            'longitude': longitude,
+            'rwh_type': rwh_type,
+            'avg_rainfall': avg_rainfall,
+            'cost': cost,
+            'project_status': project_status,
+            'feasibility_score': feasibility_score,
+            'annual_harvestable_water': annual_harvestable_water,
+            'recommended_storage_capacity': recommended_storage_capacity,
+            'water_self_sufficiency_days': water_self_sufficiency_days,
+            'recommendations': recommendations_list,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
         
         doc_ref = db.collection('assessments').document()
         doc_ref.set(assessment_data)
@@ -220,8 +299,8 @@ async def get_user_assessments(user_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/assessments/{assessment_id}/status")
-async def toggle_assessment_status(assessment_id: str, status: int):
+@router.get("/assessments/{assessment_id}/status")
+async def toggle_assessment_status(assessment_id: str, status: int = Query(...)):
     """Toggle project status (0 or 1)"""
     if not db:
         raise HTTPException(status_code=500, detail="Database not initialized")
@@ -239,7 +318,7 @@ async def toggle_assessment_status(assessment_id: str, status: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/assessments/{assessment_id}")
+@router.get("/assessments/{assessment_id}/delete")
 async def delete_assessment(assessment_id: str):
     """Delete an assessment"""
     if not db:

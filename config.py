@@ -37,7 +37,7 @@ LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "2500"))
 
 # RAG Configuration
-RAG_COLLECTION_NAME = os.getenv("RAG_COLLECTION_NAME", "standrd_rag")
+RAG_COLLECTION_NAME = os.getenv("RAG_COLLECTION_NAME", "gis_rwh_rag_indra")
 RAG_RETRIEVER_K = int(os.getenv("RAG_RETRIEVER_K", "2"))
 
 # Embedding Model (local)
@@ -66,7 +66,8 @@ CORS_ORIGINS = os.getenv(
 
 # Server Settings
 SERVER_HOST = os.getenv("SERVER_HOST", "0.0.0.0")
-SERVER_PORT = int(os.getenv("SERVER_PORT", "8000"))
+# PORT is used by Render, SERVER_PORT is fallback for local development
+SERVER_PORT = int(os.getenv("PORT", os.getenv("SERVER_PORT", "8000")))
 DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
 
 
@@ -95,7 +96,7 @@ def validate_config():
         errors.append(f"GIS data file not found at {GIS_DATA_PATH}")
     
     if errors:
-        print("⚠️ Configuration Warnings:")
+        print("Configuration Warnings:")
         for error in errors:
             print(f"  - {error}")
         return False

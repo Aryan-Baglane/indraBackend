@@ -211,29 +211,40 @@ async def get_feed(
         return {"posts": [], "total": 0, "filters": {}}
 
 
-@router.post("/post")
-async def create_post(request: CreatePostRequest):
+@router.get("/post/create")
+async def create_post(
+    author_uid: str = Query(..., description="Author's UID"),
+    author_name: str = Query(..., description="Author's name"),
+    content: str = Query(..., description="Post content"),
+    district: str = Query(..., description="Author's district"),
+    state: str = Query(..., description="Author's state"),
+    post_type: str = Query("general", description="Post type"),
+    tags: str = Query("", description="Comma-separated tags")
+):
     """Create a new community post in Firestore"""
     try:
+        # Parse tags from comma-separated string
+        tags_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+        
         # Predict cluster for the post author
         cluster_id = None
         try:
             initialize_clustering()
             cluster_id = predict_cluster({
-                "state": request.state,
-                "district": request.district
+                "state": state,
+                "district": district
             })
         except:
             pass  # Clustering is optional
         
         post_data = {
-            "authorUid": request.author_uid,
-            "authorName": request.author_name,
-            "content": request.content,
-            "postType": request.post_type,
-            "authorDistrict": request.district,
-            "authorState": request.state,
-            "tags": request.tags,
+            "authorUid": author_uid,
+            "authorName": author_name,
+            "content": content,
+            "postType": post_type,
+            "authorDistrict": district,
+            "authorState": state,
+            "tags": tags_list,
             "likes": [],
             "likeCount": 0,
             "commentCount": 0,
@@ -250,23 +261,23 @@ async def create_post(request: CreatePostRequest):
             "success": True,
             "post": {
                 "id": post_id,
-                "author_uid": request.author_uid,
-                "author_name": request.author_name,
-                "content": request.content,
-                "post_type": request.post_type,
-                "district": request.district,
-                "state": request.state,
+                "author_uid": author_uid,
+                "author_name": author_name,
+                "content": content,
+                "post_type": post_type,
+                "district": district,
+                "state": state,
                 "likes": 0,
                 "comments": 0,
                 "created_at": datetime.now().isoformat(),
-                "tags": request.tags
+                "tags": tags_list
             }
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create post: {str(e)}")
 
 
-@router.post("/post/{post_id}/like")
+@router.get("/post/{post_id}/like")
 async def toggle_like_post(post_id: str, user_uid: str = Query(...)):
     """Toggle like on a post"""
     try:
@@ -301,7 +312,7 @@ async def toggle_like_post(post_id: str, user_uid: str = Query(...)):
         raise HTTPException(status_code=500, detail=f"Failed to toggle like: {str(e)}")
 
 
-@router.delete("/post/{post_id}")
+@router.get("/post/{post_id}/delete")
 async def delete_post(post_id: str, user_uid: str = Query(...)):
     """Delete a post (only by author)"""
     try:
@@ -350,8 +361,13 @@ async def get_comments(post_id: str):
         return {"comments": [], "total": 0}
 
 
-@router.post("/post/{post_id}/comment")
-async def add_comment(post_id: str, request: CommentRequest):
+@router.get("/post/{post_id}/comment/add")
+async def add_comment(
+    post_id: str,
+    author_uid: str = Query(..., description="Author's UID"),
+    author_name: str = Query(..., description="Author's name"),
+    content: str = Query(..., description="Comment content")
+):
     """Add a comment to a post"""
     try:
         # Verify post exists
@@ -364,9 +380,9 @@ async def add_comment(post_id: str, request: CommentRequest):
         # Add comment
         comment_data = {
             "postId": post_id,
-            "authorUid": request.author_uid,
-            "authorName": request.author_name,
-            "content": request.content,
+            "authorUid": author_uid,
+            "authorName": author_name,
+            "content": content,
             "createdAt": firestore.SERVER_TIMESTAMP
         }
         
@@ -382,9 +398,9 @@ async def add_comment(post_id: str, request: CommentRequest):
             "success": True,
             "comment": {
                 "id": doc_ref[1].id,
-                "author_uid": request.author_uid,
-                "author_name": request.author_name,
-                "content": request.content,
+                "author_uid": author_uid,
+                "author_name": author_name,
+                "content": content,
                 "created_at": datetime.now().isoformat()
             }
         }
@@ -396,8 +412,16 @@ async def add_comment(post_id: str, request: CommentRequest):
 
 # ==================== NEARBY DROPLETS ENDPOINTS ====================
 
-@router.post("/nearby")
-async def get_nearby(request: NearbyDropletsRequest):
+@router.get("/nearby")
+async def get_nearby(
+    uid: str = Query(..., description="User's UID"),
+    latitude: Optional[float] = Query(None, description="User's latitude"),
+    longitude: Optional[float] = Query(None, description="User's longitude"),
+    state: Optional[str] = Query(None, description="User's state"),
+    district: Optional[str] = Query(None, description="User's district"),
+    max_distance: float = Query(100, description="Maximum distance in km"),
+    limit: int = Query(20, description="Maximum number of results")
+):
     """Get nearby droplets based on location using AIML clustering"""
     try:
         users_ref = db.collection(USERS_COLLECTION)
@@ -408,7 +432,7 @@ async def get_nearby(request: NearbyDropletsRequest):
         
         for doc in docs:
             data = doc.to_dict()
-            if data.get('uid') == request.uid:
+            if data.get('uid') == uid:
                 current_user_data = data
                 continue  # Skip current user
             
@@ -427,20 +451,20 @@ async def get_nearby(request: NearbyDropletsRequest):
             }
             
             # Calculate distance if coordinates available
-            if (request.latitude and request.longitude and 
+            if (latitude and longitude and 
                 data.get('latitude') and data.get('longitude')):
-                distance = calculate_distance(
-                    request.latitude, request.longitude,
+                distance_val = calculate_distance(
+                    latitude, longitude,
                     data['latitude'], data['longitude']
                 )
-                droplet['distance'] = round(distance, 1)
+                droplet['distance'] = round(distance_val, 1)
                 
                 # Filter by max distance
-                if distance > request.max_distance:
+                if distance_val > max_distance:
                     continue
             else:
                 # Fallback: filter by state
-                if request.state and data.get('state', '').lower() != request.state.lower():
+                if state and data.get('state', '').lower() != state.lower():
                     continue
             
             droplets.append(droplet)
@@ -448,15 +472,15 @@ async def get_nearby(request: NearbyDropletsRequest):
         # Use AIML clustering if available
         try:
             initialize_clustering()
-            if current_user_data or request.state:
+            if current_user_data or state:
                 user_data = current_user_data or {
-                    "state": request.state,
-                    "district": request.district
+                    "state": state,
+                    "district": district
                 }
                 droplets_with_clusters = get_nearby_droplets(
                     user_data,
                     droplets,
-                    request.limit
+                    limit
                 )
                 if droplets_with_clusters:
                     droplets = droplets_with_clusters
@@ -466,13 +490,13 @@ async def get_nearby(request: NearbyDropletsRequest):
         # Sort by distance (closest first)
         droplets.sort(key=lambda x: (
             x.get('distance', 9999),
-            0 if x.get('district', '').lower() == (request.district or '').lower() else 1
+            0 if x.get('district', '').lower() == (district or '').lower() else 1
         ))
         
         return {
-            "droplets": droplets[:request.limit],
+            "droplets": droplets[:limit],
             "total": len(droplets),
-            "has_location": bool(request.latitude and request.longitude)
+            "has_location": bool(latitude and longitude)
         }
     except Exception as e:
         print(f"Error fetching nearby droplets: {e}")
@@ -542,29 +566,28 @@ async def get_clusters():
         return {"clusters": {}, "total_clusters": 0}
 
 
-@router.post("/clusters/train")
-async def train_clusters(request: ClusterDropletsRequest):
-    """Train clustering model with droplet data"""
+@router.get("/clusters/train")
+async def train_clusters():
+    """Train clustering model with droplet data from Firestore"""
     try:
-        droplets_dict = [d.dict() for d in request.droplets]
+        droplets_dict = []
         
-        # If not enough droplets, fetch from Firestore
-        if len(droplets_dict) < 5:
-            users_ref = db.collection(USERS_COLLECTION).limit(50)
-            docs = users_ref.stream()
-            for doc in docs:
-                data = doc.to_dict()
-                droplets_dict.append({
-                    "uid": data.get('uid'),
-                    "name": data.get('name'),
-                    "state": data.get('state'),
-                    "district": data.get('district'),
-                    "n_members": data.get('n_members', 4),
-                    "catchment_area": data.get('catchment_area', 100),
-                    "farmland_area": data.get('farmland_area', 0),
-                    "budget": data.get('budget', 50000),
-                    "avg_rainfall": data.get('avg_rainfall', 800)
-                })
+        # Fetch droplets from Firestore
+        users_ref = db.collection(USERS_COLLECTION).limit(50)
+        docs = users_ref.stream()
+        for doc in docs:
+            data = doc.to_dict()
+            droplets_dict.append({
+                "uid": data.get('uid'),
+                "name": data.get('name'),
+                "state": data.get('state'),
+                "district": data.get('district'),
+                "n_members": data.get('n_members', 4),
+                "catchment_area": data.get('catchment_area', 100),
+                "farmland_area": data.get('farmland_area', 0),
+                "budget": data.get('budget', 50000),
+                "avg_rainfall": data.get('avg_rainfall', 800)
+            })
         
         result = train_clustering(droplets_dict)
         
@@ -578,21 +601,54 @@ async def train_clusters(request: ClusterDropletsRequest):
         raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
 
 
-@router.post("/clusters/predict")
-async def predict_droplet_cluster(droplet: DropletData):
+@router.get("/clusters/predict")
+async def predict_droplet_cluster(
+    uid: str = Query(..., description="User's UID"),
+    name: str = Query(..., description="User's name"),
+    state: str = Query(..., description="User's state"),
+    district: str = Query(..., description="User's district"),
+    n_members: int = Query(4, description="Number of household members"),
+    catchment_area: float = Query(100, description="Catchment area"),
+    farmland_area: float = Query(0, description="Farmland area"),
+    roof_type: str = Query("Flat", description="Roof type"),
+    roof_material: str = Query("RCC", description="Roof material"),
+    budget: float = Query(50000, description="Budget"),
+    avg_rainfall: Optional[float] = Query(800, description="Average rainfall"),
+    latitude: Optional[float] = Query(None, description="Latitude"),
+    longitude: Optional[float] = Query(None, description="Longitude"),
+    email: Optional[str] = Query(None, description="Email"),
+    bio: Optional[str] = Query(None, description="Bio")
+):
     """Predict which cluster a droplet belongs to"""
     try:
         initialize_clustering()
-        cluster_id = predict_cluster(droplet.dict())
+        droplet_data = {
+            "uid": uid,
+            "name": name,
+            "email": email,
+            "state": state,
+            "district": district,
+            "n_members": n_members,
+            "catchment_area": catchment_area,
+            "farmland_area": farmland_area,
+            "roof_type": roof_type,
+            "roof_material": roof_material,
+            "budget": budget,
+            "avg_rainfall": avg_rainfall,
+            "latitude": latitude,
+            "longitude": longitude,
+            "bio": bio
+        }
+        cluster_id = predict_cluster(droplet_data)
         cluster_info = get_cluster_info()
         
         return {
             "cluster_id": cluster_id,
             "cluster_info": cluster_info.get(str(cluster_id), {}),
-            "droplet_uid": droplet.uid
+            "droplet_uid": uid
         }
     except Exception as e:
-        return {"cluster_id": 0, "cluster_info": {}, "droplet_uid": droplet.uid}
+        return {"cluster_id": 0, "cluster_info": {}, "droplet_uid": uid}
 
 
 # ==================== STATS ENDPOINT ====================

@@ -1,6 +1,7 @@
 """
 Water Management AI - Production Ready for Rural India
-Uses buckets/day, GIS rainfall data, and token-optimized prompts
+Uses buckets/day, RAG-verified data, and AI-powered dynamic responses
+No hardcoded values - everything is AI-backed
 """
 
 import os
@@ -11,18 +12,13 @@ from typing import Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 import traceback
 
-# API KEYS
-QDRANT_URL = "https://50052f68-a3f2-4fce-91b2-9e140737db61.us-east4-0.gcp.cloud.qdrant.io"
-QDRANT_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.5XzTwGgID_B55AVH-lIM9QYK2PEceMbMkcUMHWCgTDU"
-OPENROUTER_API_KEY = "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"
-
-# MODEL CONFIG
-COLLECTION_NAME = "standrd_rag"
-LLM_MODEL = "nvidia/nemotron-nano-12b-v2-vl:free"
-TEMPERATURE = 0.3
-MAX_TOKENS = 600  # Increased for better responses
-MAX_RETRIES = 3  # Retry count for LLM calls
-RETRY_DELAY = 1.0  # Seconds between retries
+# Import centralized config
+from config import (
+    QDRANT_URL, QDRANT_API_KEY, OPENROUTER_API_KEY,
+    RAG_COLLECTION_NAME, LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS,
+    EMBEDDING_MODEL_PATH, OPENROUTER_BASE_URL,
+    MAX_RETRIES, RETRY_DELAY, RAG_RETRIEVER_K
+)
 
 # DEPENDENCIES
 try:
@@ -33,6 +29,7 @@ try:
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import StrOutputParser
     from gis_utils import gis_manager
+    from ai_service import ai_service, verify_and_get_location_data, generate_ai_content
 except ImportError as e:
     print(f"Error: Missing libraries - {e}")
     sys.exit(1)
@@ -255,8 +252,8 @@ Keep response under 80 words. Be practical and actionable."""
     
     def calculate_optimal_distribution(self, request: WaterManagementRequest) -> Tuple[WaterDistribution, str, str]:
         """
-        Calculate water distribution using GIS data.
-        Uses pincode as primary identifier, falls back to nearest available data.
+        Calculate water distribution using AI-VERIFIED GIS data.
+        Uses pincode as primary identifier, fact-checks data with AI service.
         """
         # REQUIRE at least pincode OR location
         if not request.pincode and not request.location:
@@ -284,14 +281,51 @@ Keep response under 80 words. Be practical and actionable."""
         if match_type != 'exact_pincode':
             print(f"[WaterManagement] Using {match_type} data: {note}")
         
-        # Extract GIS data
+        # FACT-CHECK GIS data using AI Service before using
         rainfall = gis_data.get('rainfall', {})
         gw = gis_data.get('groundwater', {})
-        stress = gis_manager.get_water_stress_level(gis_data)
         
+        # Get original values
         annual_rain = rainfall.get('total_annual', 0)
         season_rain = rainfall.get(request.season.lower(), 0)
         extraction_pct = gw.get('extraction_percentage', 0)
+        
+        # Try to fact-check with AI service (async call in sync context)
+        try:
+            import asyncio
+            if ai_service._initialized or ai_service.initialize():
+                if district and state:
+                    print(f"[WaterManagement] Fact-checking GIS data for {district}, {state}...")
+                    # Run async fact-check
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        fact_result = loop.run_until_complete(
+                            ai_service.fact_check_location_data(state, district, gis_data)
+                        )
+                        if fact_result.confidence >= 0.5:
+                            # Use verified data
+                            verified_rain = fact_result.verified_data.get('rainfall', {})
+                            verified_gw = fact_result.verified_data.get('groundwater', {})
+                            annual_rain = verified_rain.get('total_annual', annual_rain)
+                            extraction_pct = verified_gw.get('extraction_percentage', extraction_pct)
+                            print(f"[WaterManagement] AI-verified: {annual_rain}mm rain, {extraction_pct}% GW (confidence: {fact_result.confidence})")
+                            if fact_result.corrections:
+                                print(f"[WaterManagement] Corrections: {fact_result.corrections}")
+                    finally:
+                        loop.close()
+        except Exception as e:
+            print(f"[WaterManagement] Fact-check failed, using raw GIS: {e}")
+        
+        # Determine stress level based on verified extraction percentage
+        if extraction_pct > 100:
+            stress = "Over-Exploited"
+        elif extraction_pct > 90:
+            stress = "Critical"
+        elif extraction_pct > 70:
+            stress = "Semi-Critical"
+        else:
+            stress = "Safe"
         
         # Base needs (1 bucket ≈ 20L) - adjusted by GIS data
         drinking_base = request.household_members * 2

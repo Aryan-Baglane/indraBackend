@@ -11,6 +11,9 @@ import os
 # Import config
 from config import CORS_ORIGINS, SERVER_HOST, SERVER_PORT, DEBUG_MODE, validate_config
 
+# Import AI service for centralized AI operations
+from ai_service import ai_service
+
 # Import vendor module
 from vendor import search_vendors_handler, get_diy_guide_handler
 
@@ -69,6 +72,17 @@ async def startup_event():
     """Initialize AI systems on server startup"""
     print("\nStarting INDRA Backend Services...")
     print("-" * 50)
+    
+    # Initialize Central AI Service (RAG + LLM)
+    try:
+        print("Initializing Central AI Service...")
+        ai_service.initialize()
+        if ai_service._initialized:
+            print("Central AI Service ready")
+        else:
+            print("Central AI Service: Limited functionality")
+    except Exception as e:
+        print(f"Central AI Service warning: {e}")
     
     # Initialize Assessment Embedding Model
     try:
@@ -338,43 +352,49 @@ async def get_diy_guide():
 
 
 # Placeholder endpoints for other modules
-@app.post("/api/assessment")
+@app.get("/api/assessment")
 async def create_assessment():
     """Placeholder for RWH assessment endpoint"""
     return {"message": "Assessment endpoint - To be implemented"}
 
 
 # Chatbot Endpoints
-@app.post("/api/chatbot/standard", response_model=ChatResponse)
-async def chatbot_standard_endpoint(request: ChatRequest):
+@app.get("/api/chatbot/standard", response_model=ChatResponse)
+async def chatbot_standard_endpoint(
+    message: str = Query(..., description="User message for the chatbot")
+):
     """
     Standard/Urban chatbot for rainwater harvesting queries
     
     Args:
-        request: User message
+        message: User message
     
     Returns:
         AI-powered response focused on urban RWH
     """
     try:
+        request = ChatRequest(message=message)
         result = await chat_standard(request)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Standard chatbot error: {str(e)}")
 
 
-@app.post("/api/chatbot/rural", response_model=ChatResponse)
-async def chatbot_rural_endpoint(request: ChatRequest):
+@app.get("/api/chatbot/rural", response_model=ChatResponse)
+async def chatbot_rural_endpoint(
+    message: str = Query(..., description="User message for the chatbot")
+):
     """
     Rural/Gramin chatbot for farming and water management queries
     
     Args:
-        request: User message
+        message: User message
     
     Returns:
         AI-powered response focused on rural water management and farming
     """
     try:
+        request = ChatRequest(message=message)
         result = await chat_rural(request)
         return result
     except Exception as e:
@@ -382,13 +402,27 @@ async def chatbot_rural_endpoint(request: ChatRequest):
 
 
 # Water Management Endpoints (INDRA-Gramin)
-@app.post("/api/gramin/water-management/predict", response_model=WaterManagementResponse)
-async def predict_optimal_distribution(request: WaterManagementRequest):
+@app.get("/api/gramin/water-management/predict", response_model=WaterManagementResponse)
+async def predict_optimal_distribution(
+    location: Optional[str] = Query(None, description="Location name"),
+    pincode: Optional[str] = Query(None, description="Area pincode"),
+    season: str = Query("monsoon", description="Current season"),
+    crop_type: Optional[str] = Query(None, description="Type of crop"),
+    cattle_count: int = Query(10, description="Number of cattle"),
+    household_members: int = Query(4, description="Number of household members"),
+    farm_size_acres: float = Query(2.0, description="Farm size in acres")
+):
     """
     AI-powered water distribution prediction for rural communities using GIS + RAG + LLM.
     
     Args:
-        request: Water management parameters (location, season, crop, cattle, etc.)
+        location: Location name
+        pincode: Area pincode
+        season: Current season
+        crop_type: Type of crop
+        cattle_count: Number of cattle
+        household_members: Number of household members
+        farm_size_acres: Farm size in acres
     
     Returns:
         Optimal water distribution with AI insights and recommendations
@@ -398,6 +432,15 @@ async def predict_optimal_distribution(request: WaterManagementRequest):
                       Returns specific error message - NO hardcoded fallbacks.
     """
     try:
+        request = WaterManagementRequest(
+            location=location,
+            pincode=pincode,
+            season=season,
+            crop_type=crop_type,
+            cattle_count=cattle_count,
+            household_members=household_members,
+            farm_size_acres=farm_size_acres
+        )
         result = await predict_water_distribution(request)
         return result
     except ValueError as ve:
@@ -436,18 +479,41 @@ async def get_conservation_tips(
 
 
 # Crop Suggestion Endpoints (INDRA-Gramin Smart Cropping)
-@app.post("/api/gramin/crop-suggestions", response_model=CropSuggestionResponse)
-async def get_ai_crop_recommendations(request: CropInput):
+@app.get("/api/gramin/crop-suggestions", response_model=CropSuggestionResponse)
+async def get_ai_crop_recommendations(
+    location: str = Query(..., description="Location/district of the farm"),
+    soil_type: str = Query(..., description="Type of soil"),
+    season: str = Query(..., description="Planting season (Kharif/Rabi/Zaid)"),
+    water_availability: str = Query(..., description="Water availability (Low/Medium/High)"),
+    farm_size_acres: float = Query(..., description="Farm size in acres"),
+    pincode: Optional[str] = Query(None, description="Area pincode for GIS data"),
+    rainfall_mm: Optional[float] = Query(None, description="Annual rainfall in mm")
+):
     """
     AI-powered crop suggestions based on location, soil, season, and water availability
     
     Args:
-        request: Crop input parameters (location, soil, season, water, farm size)
+        location: Location/district of the farm
+        soil_type: Type of soil
+        season: Planting season
+        water_availability: Water availability level
+        farm_size_acres: Farm size in acres
+        pincode: Area pincode for GIS data
+        rainfall_mm: Annual rainfall in mm
     
     Returns:
         Top 5 crop recommendations ranked by price/water ratio with environmental considerations
     """
     try:
+        request = CropInput(
+            location=location,
+            pincode=pincode,
+            soil_type=soil_type,
+            season=season,
+            water_availability=water_availability,
+            farm_size_acres=farm_size_acres,
+            rainfall_mm=rainfall_mm
+        )
         result = await get_crop_suggestions(request)
         return result
     except ValueError as ve:
