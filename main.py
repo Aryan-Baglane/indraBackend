@@ -4,6 +4,7 @@ FastAPI Main Application for INDRA Backend
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from typing import Optional
 import os
@@ -55,20 +56,8 @@ from user_auth import router as user_router
 # Import community module for social dashboard
 from community import router as community_router
 
-app = FastAPI(
-    title="INDRA API",
-    description="Initiative for Drainage and Rainwater Acquisition - Backend API",
-    version="1.0.0"
-)
-
-# Include routers
-app.include_router(assessment_router)
-app.include_router(user_router)
-app.include_router(community_router)
-
-# Initialize crop suggestion system on startup
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Initialize AI systems on server startup"""
     print("\nStarting INDRA Backend Services...")
     print("-" * 50)
@@ -136,6 +125,23 @@ async def startup_event():
     print("-" * 50)
     print("INDRA Backend Ready")
     print("-" * 50)
+    
+    yield
+    
+    print("INDRA Backend Shutting Down...")
+
+
+app = FastAPI(
+    title="INDRA API",
+    description="Initiative for Drainage and Rainwater Acquisition - Backend API",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Include routers
+app.include_router(assessment_router)
+app.include_router(user_router)
+app.include_router(community_router)
 
 # CORS Configuration
 app.add_middleware(
